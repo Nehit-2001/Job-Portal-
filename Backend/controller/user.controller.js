@@ -1,17 +1,19 @@
-import User from "../models/user.model.js";
+import { User } from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 //For new User Registration code
 export const register = async (req, res) => {
   try {
-    const { fullname, email, password, phoneNumber, roll } = req.body();
-    if (!fullname || !email || !password || !phoneNumber || !roll) {
+    const { fullname, email, password, phoneNumber, role } = req.body;
+    if (!fullname || !email || !password || !phoneNumber || !role) {
       return res.status(404).json({
         message: "Required field is missing",
         success: false,
       });
     }
+
+    
 
     const user = await User.findOne({ email });
     if (user) {
@@ -28,9 +30,11 @@ export const register = async (req, res) => {
       fullname,
       email,
       phoneNumber,
-      roll,
+      role,
       password: hashedPassword,
     });
+
+    await newUser.save();
 
     return res.status(200).json({
       message: `Account created successfully ${fullname}`,
@@ -48,8 +52,8 @@ export const register = async (req, res) => {
 //Already exist User login code
 export const login = async (req, res) => {
   try {
-    const { email, password, roll } = req.body();
-    if (!email || !password || !roll) {
+    const { email, password, role } = req.body;
+    if (!email || !password || !role) {
       return res.status(404).json({
         message: "Required field is missing",
         success: false,
@@ -93,7 +97,7 @@ export const login = async (req, res) => {
       fullname: user.fullname,
       email: user.email,
       phoneNumber: user.phoneNumber,
-      role: user.roll,
+      role: user.role,
       profile: user.profile,
     };
 
@@ -102,16 +106,17 @@ export const login = async (req, res) => {
       .cookie("token", token, {
         maxAge: 1 * 24 * 60 * 60 * 1000,
         httpOnly: true,
-        sameSite: strict,
+        sameSite: "strict",
       })
       .json({
         message: `Welcome Back ${user.fullname}`,
         user,
+        token,
         success: true,
       });
   } catch (error) {
     console.error(error);
-    res.status(500).jsson({
+    res.status(500).json({
       message: "Server error login failed",
       success: false,
     });
@@ -136,20 +141,16 @@ export const logout = (req, res) => {
 
 export const updateProfile = async (req, res) => {
   try {
-    const { fullname, email, phoneNumber, bio, skills } = req.body();
-    const file = req.files;
-    if (!fullname || !email || !bio || !phoneNumber || !skills) {
-      return res.status(404).json({
-        message: "Required field is missing",
-        success: false,
-      });
+    const { fullname, email, phoneNumber, bio, skills } = req.body;
+
+    let skillsArray;
+    if (skills) {
+      const skillsArray = skills.split(",");
     }
 
-    //Cloudinary upload
-
-    const skillsArray = skills.split(",");
-    const userId = req.id; //middleware authentication
+    const userId = req.id;
     let user = await User.findById(userId);
+
     if (!user) {
       return res.status(404).json({
         message: "User not found",
@@ -157,29 +158,21 @@ export const updateProfile = async (req, res) => {
       });
     }
 
-    user.fullname = fullname;
-    user.email = email;
-    user.phoneNumber = phoneNumber;
-    user.bio = bio;
-    user.skills = skillsArray;
+    // Update only if provided
+    if (fullname) user.fullname = fullname;
+    if (email) user.email = email;
+    if (phoneNumber) user.phoneNumber = phoneNumber;
 
-    //resume
+    if (bio) user.profile.bio = bio;
+    if (skillsArray) user.profile.skills = skillsArray;
+
     await user.save();
 
-    user = {
-      _id: user._id,
-      fullname: user.fullname,
-      email: user.email,
-      phoneNumber: user.phoneNumber,
-      role: user.roll,
-      profile: user.profile,
-    };
-
     return res.status(200).json({
-        message:"Profile Updated Successfully",
-        user,
-        success:true
-    })
+      message: "Profile Updated Successfully",
+      user,
+      success: true,
+    });
 
   } catch (error) {
     console.error(error);

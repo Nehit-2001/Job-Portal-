@@ -11,7 +11,6 @@ const companySchema = new mongoose.Schema({
     },
     logo:{
         type:String,
-        require:true
     },
     website:{
         type:String,
