@@ -7,6 +7,8 @@ import companyRoute from "./routers/company.route.js";
 import jobRoute from "./routers/job.route.js";
 import applicationRoute from "./routers/application.route.js";
 import connectDB from "./utils/db.js";
+import path from "path";
+import { fileURLToPath } from "url";
 
 dotenv.config({});
 const app = express();
@@ -27,6 +29,22 @@ app.use("/api/users", userRoute);
 app.use("/api/company", companyRoute);
 app.use("/api/job", jobRoute);
 app.use("/api/application", applicationRoute);
+
+
+
+// -------Deployment Code-------
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+
+// ✅ Serve frontend build in production
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(path.join(__dirname, "../frontend/dist")));
+
+  app.get("/{*splat}", (req, res) => {
+    res.sendFile(path.join(__dirname, "../frontend/dist", "index.html"));
+  });
+}
 
 const PORT = process.env.PORT || 5001;
 
