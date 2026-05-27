@@ -1,8 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Navbar from "../Navbar";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { USER_API_ENDPOINT } from "../../utils/data";
+import { useDispatch, useSelector } from "react-redux";
+import { setLoading, setUser } from "../../redux/authSlice";
+import store from "../../redux/store";
 
 const Login = () => {
   //useState for radio button
@@ -14,31 +17,48 @@ const Login = () => {
   });
 
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { loading, user } = useSelector((store) => store.auth);
 
   const changeEventHandler = (e) => {
     setInput({ ...input, [e.target.name]: e.target.value });
   };
 
-  const changeFileHandler = (e) => {
-    setInput({ ...input, file: e.target.files?.[0] });
-  };
-
   const submitHandler = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post(`${USER_API_ENDPOINT}/login`, input, {
-        withCredentials: true,
+      dispatch(setLoading(true));
+      const res = await fetch(`${USER_API_ENDPOINT}/login`, {
+        method: "POST",
+        credentials: "include", // same as axios withCredentials: true
+        headers: {
+          "Content-Type": "application/json", // needed for JSON data
+        },
+        body: JSON.stringify(input), // stringify plain object
       });
 
-      if (res.data.success) {
-        alert(res.data.message);
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        dispatch(setUser(data.user));
+        console.log(data.user);
         navigate("/");
+      } else {
+        alert(data?.message || "Something went wrong");
       }
     } catch (error) {
       console.log(error);
-      alert(error.response?.data?.message || "Something went wrong");
+      alert(error.message || "Something went wrong");
+    } finally {
+      dispatch(setLoading(false));
     }
   };
+
+  useEffect(()=>{
+    if(user){
+      navigate("/")
+    }
+  },[]);
   return (
     <>
       <Navbar />
@@ -105,9 +125,18 @@ const Login = () => {
               <span className="mb-1 font-semibold text-lg">Recruiter</span>
             </label>
           </div>
-          <button className="w-full block bg-[#2777e7de] hover:bg-blue-600 text-white font-bold py-2 px-4 my-3 rounded-full">
-            Login
-          </button>
+
+          {loading ? (
+            <div className="flex items-center justify-center my-10">
+              <div className="spinner-border text-blue-600" role="status">
+                <span className="sr-only">Loading...</span>
+              </div>
+            </div>
+          ) : (
+            <button className="w-full block bg-[#2777e7de] hover:bg-blue-600 text-white font-bold py-2 px-4 my-3 rounded-full">
+              Login
+            </button>
+          )}
 
           {/* Alrady have an account */}
           <p className="text-gray-500 text-sm my-3 flex items-center justify-center">

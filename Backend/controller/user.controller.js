@@ -1,6 +1,8 @@
 import { User } from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import getDataUri from "../utils/datauri.js";
+import cloudinary from "../utils/cloud.js";
 
 //For new User Registration code
 export const register = async (req, res) => {
@@ -23,6 +25,11 @@ export const register = async (req, res) => {
       });
     }
 
+    //cloudinary Upload
+    const file = req.file;
+    const fileUri = getDataUri(file);
+    const cloudResponse = await cloudinary.uploader.upload(fileUri.content);
+
     //Convert password into hashes
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -32,11 +39,14 @@ export const register = async (req, res) => {
       phoneNumber,
       role,
       password: hashedPassword,
+      profile: {
+        profilePhoto:cloudResponse.secure_url,
+      }
     });
 
     await newUser.save();
 
-    return res.status(200).json({
+    return res.status(201).json({
       message: `Account created successfully ${fullname}`,
       success: true,
     });
@@ -54,7 +64,7 @@ export const login = async (req, res) => {
   try {
     const { email, password, role } = req.body;
     if (!email || !password || !role) {
-      return res.status(404).json({
+      return res.status(400).json({
         message: "Required field is missing",
         success: false,
       });
@@ -62,7 +72,7 @@ export const login = async (req, res) => {
 
     let user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({
+      return res.status(400).json({
         message: "Incorrect email or password",
         success: false,
       });
@@ -70,7 +80,7 @@ export const login = async (req, res) => {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(404).json({
+      return res.status(400).json({
         message: "Incorrect email or password",
         success: false,
       });
@@ -78,7 +88,7 @@ export const login = async (req, res) => {
 
     //Check If User role
     if (user.role !== role) {
-      return res.status(403).json({
+      return res.status(400).json({
         message: "You don't have the necessary role to access this resource",
         success: false,
       });
@@ -142,17 +152,22 @@ export const logout = (req, res) => {
 export const updateProfile = async (req, res) => {
   try {
     const { fullname, email, phoneNumber, bio, skills } = req.body;
+    const file = req.file;
 
     let skillsArray;
     if (skills) {
-      const skillsArray = skills.split(",");
+      skillsArray = skills.split(",");
     }
+
+    //cloudinary Upload
+    const fileUri = getDataUri(file);
+    const cloudResponse = await cloudinary.uploader.upload(fileUri.content);
 
     const userId = req.id;
     let user = await User.findById(userId);
 
     if (!user) {
-      return res.status(404).json({
+      return res.status(400).json({
         message: "User not found",
         success: false,
       });
@@ -165,6 +180,11 @@ export const updateProfile = async (req, res) => {
 
     if (bio) user.profile.bio = bio;
     if (skillsArray) user.profile.skills = skillsArray;
+
+    if(cloudResponse){
+      user.profile.resume = cloudResponse.secure_url;
+      user.profile.resumeOriginalName = file.originalname;
+    }
 
     await user.save();
 
