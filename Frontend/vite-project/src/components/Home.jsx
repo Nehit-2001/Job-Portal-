@@ -17,13 +17,15 @@ const Home = () => {
     if (user?.role === "Recruiter") {
       navigate("/admin/companies");
     }
-  }, []);
+  }, [user]);
   return (
-    <div>
+    <div className="min-h-screen flex flex-col">
       <Navbar />
+      <main className="flex-1">
       <Header />
       <Categories />
       <LatestJobs />
+      </main>
       <Footer />
     </div>
   );

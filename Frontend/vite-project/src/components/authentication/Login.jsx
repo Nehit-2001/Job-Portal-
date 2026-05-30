@@ -30,7 +30,7 @@ const Login = () => {
       dispatch(setLoading(true));
       const res = await fetch(`${USER_API_ENDPOINT}/login`, {
         method: "POST",
-        credentials: "include", // same as axios withCredentials: true
+        credentials: "include", 
         headers: {
           "Content-Type": "application/json", // needed for JSON data
         },
