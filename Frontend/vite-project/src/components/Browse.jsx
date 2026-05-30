@@ -4,33 +4,58 @@ import JobCard from "./JobCard";
 import Footer from "./Footer";
 import { useDispatch, useSelector } from "react-redux";
 import { setSearchedQuery } from "../redux/jobSlice";
-import useGetAllJobs from "../Hooks/useGetAllJobs"
+import useGetAllJobs from "../Hooks/useGetAllJobs";
+import { motion } from "framer-motion";
 
 const Browse = () => {
   useGetAllJobs();
-  const { allJobs } = useSelector((store)=> store.job);
+  const { allJobs } = useSelector((store) => store.job);
   const dispatch = useDispatch();
-  useEffect(()=> {
-    return ()=> {
-      dispatch(setSearchedQuery(""));
-    }
-  }, [])
+
+  useEffect(() => {
+    return () => {
+      dispatch(setSearchedQuery("")); 
+    };
+  }, [dispatch]); 
+
   return (
-    <div>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
-      <div className="w-full mx-auto my-10">
-        {/* <h1 className="font-semibold text-xl ml-5">Search Result {allJobs.length}</h1> */}
-        <div className="grid grid-cols-3 gap-4 mx-5 my-4">
-            {allJobs.map((job, index) => (
-          
-            <JobCard key={job._id} job={job}/>
-          
-        ))}
+
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-10"> 
+
+        {/* Heading */}
+        <div className="mb-6">
+          <h1 className="text-xl md:text-2xl font-bold text-[#141c28de]">
+            Search Results
+            
+          </h1>
         </div>
-        <div>
-            <Footer/>
-        </div>
-      </div>
+
+        {/* Jobs Grid */}
+        {allJobs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 text-gray-400">
+            <p className="text-lg font-medium">No jobs found</p>
+            <p className="text-sm mt-1">Try a different search keyword</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {allJobs.map((job) => (
+              <motion.div
+                key={job._id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <JobCard job={job} />
+              </motion.div>
+            ))}
+          </div>
+        )}
+
+      </main>
+
+      <Footer /> 
     </div>
   );
 };
