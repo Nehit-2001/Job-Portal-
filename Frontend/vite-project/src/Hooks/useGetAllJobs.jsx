@@ -34,7 +34,7 @@ function useGetAllJobs() {
     };
 
     fetchAllJobs();
-  }, [dispatch]);
+  }, [dispatch, searchedQuery]);
 }
 
 export default useGetAllJobs;
