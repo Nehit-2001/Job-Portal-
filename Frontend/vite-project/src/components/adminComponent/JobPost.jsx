@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Navbar from "../Navbar";
 import {
   Label,
@@ -7,18 +7,22 @@ import {
   ListboxOption,
   ListboxOptions,
 } from "@headlessui/react";
-import { ChevronsUpDown } from "lucide-react";
-import { CheckIcon } from "@heroicons/react/20/solid";
+import { ChevronsUpDown, Check } from "lucide-react"; 
 import { useSelector } from "react-redux";
 import { JOB_API_ENDPOINT } from "../../utils/data";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 const JobPost = () => {
-  //   const [selected, setSelected] = useState(people[3]);
   const navigate = useNavigate();
+  const { id } = useParams(); // Get job ID from URL if editing
+  const isEditMode = !!id;
+
   const { companies } = useSelector((store) => store.company);
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [fetchLoading, setFetchLoading] = useState(isEditMode); // Loading for fetching job data
+  const [toast, setToast] = useState({ text: "", type: "" });
+
   const [input, setInput] = useState({
     title: "",
     description: "",
@@ -31,248 +35,355 @@ const JobPost = () => {
     jobType: "",
   });
 
+  // Fetch job data if in edit mode
+  useEffect(() => {
+    if (!isEditMode) {
+      setFetchLoading(false);
+      return;
+    }
+
+    const fetchJobData = async () => {
+      try {
+        setFetchLoading(true);
+        const res = await fetch(`${JOB_API_ENDPOINT}/${id}`, {
+          method: "GET",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        });
+
+        const data = await res.json();
+
+        if (res?.ok && data?.success) {
+          const job = data.job;
+          
+          // Populate form with existing job data
+          setInput({
+            title: job.title || "",
+            description: job.description || "",
+            location: job.location || "",
+            salary: job.salary || "",
+            companyId: job.company?._id || "",
+            position: job.position || 0,
+            requirements: job.requirements || "",
+            experience: job.experience || "",
+            jobType: job.jobType || "",
+          });
+
+          // Set the selected company
+          if (job.company) {
+            setSelected(job.company);
+          }
+        } else {
+          showToast(data.message || "Failed to load job", "error");
+          setTimeout(() => navigate("/admin/jobs"), 1500);
+        }
+      } catch (error) {
+        showToast("Failed to fetch job data", "error");
+        console.error(error);
+        setTimeout(() => navigate("/admin/jobs"), 1500);
+      } finally {
+        setFetchLoading(false);
+      }
+    };
+
+    fetchJobData();
+  }, [id, isEditMode, navigate]);
+
+  const showToast = (text, type = "success") => {
+    setToast({ text, type });
+    setTimeout(() => setToast({ text: "", type: "" }), 3000);
+  };
+
   const changeEventHandler = (e) => {
     setInput({ ...input, [e.target.name]: e.target.value });
   };
 
-  //Company Handle Change
   const companyHandleChange = (company) => {
     setSelected(company);
     setInput({ ...input, companyId: company._id });
   };
 
-  //Taking Input values
-  const selectChangeHandler = (value) => {
-    const selectedCompany = companies.find((company) => {
-      company.name.toLowerCase() === value;
-    });
-  };
-
-  //submit handler
   const submitHandler = async (e) => {
     e.preventDefault();
-    // console.log(input);
-    // console.log("Selected Company:", selected);
+
+    // Validation
+    if (!input.title.trim()) return showToast("Job title is required", "error");
+    if (!input.companyId) return showToast("Please select a company", "error");
+    if (!input.location.trim()) return showToast("Location is required", "error");
+
     try {
       setLoading(true);
-      const res = await fetch(`${JOB_API_ENDPOINT}/post`, {
-        method: "POST",
-        credentials: "include", //include for cookies
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(input)
+
+      const url = isEditMode 
+        ? `${JOB_API_ENDPOINT}/${id}` 
+        : `${JOB_API_ENDPOINT}/post`;
+      
+      const method = isEditMode ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
       });
 
       const data = await res.json();
-      console.log(data);
 
       if (res?.ok && data?.success) {
-        alert(data.message);
-        navigate("/admin/jobs");
+        const message = isEditMode 
+          ? data.message || "Job updated successfully!" 
+          : data.message || "Job posted successfully!";
+        
+        showToast(message, "success");
+        setTimeout(() => navigate("/admin/jobs"), 1000);
       } else {
-        console.error(data.message || "Something went wrong");
-        navigate("/admin/jobs");
+        showToast(data.message || "Something went wrong", "error");
       }
     } catch (error) {
-        console.error(error);
+      showToast(isEditMode ? "Failed to update job" : "Failed to post job", "error");
+      console.error(error);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
-  return (
-    <div>
-      <Navbar />
-      <div className="flex items-center justify-center w-screen my-5">
-        <form
-          onSubmit={submitHandler}
-          className="p-6 max-w-4xl border border-gray-400 rounded shadow-sm hover:shadow-xl hover:shadow-red-200"
-        >
-          <div className="grid grid-cols-2 gap-5">
-            <div className="grid ">
-              <label htmlFor="" className="text-gray-900 font-medium text-sm/6">
-                Title
-              </label>
-              <input
-                value={input.title}
-                onChange={changeEventHandler}
-                type="text"
-                placeholder="Enter job title"
-                name="title"
-                className="focus-visible:ring-offset-0 shadow focus-visible:ring-0 my-1 border border-gray-400 rounded hover:shadow-blue-500 pl-1"
-              />
+
+  const inputClass = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition bg-white";
+  const labelClass = "text-sm font-medium text-gray-700 mb-1 block";
+
+  // Show loading skeleton while fetching job data
+  if (fetchLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <div className="max-w-4xl mx-auto px-4 py-10">
+          <div className="mb-8">
+            <div className="h-8 bg-gray-200 rounded w-1/3 animate-pulse mb-2" />
+            <div className="h-4 bg-gray-100 rounded w-1/2 animate-pulse" />
+          </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <div className="space-y-5">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="h-10 bg-gray-100 rounded-lg animate-pulse" />
+              ))}
             </div>
-            <div className="grid">
-              <label htmlFor="" className="text-gray-900 font-medium text-sm/6">
-                Description
-              </label>
-              <input
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+
+      {/* Toast */}
+      {toast.text && (
+        <div className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-lg shadow-lg text-white text-sm font-medium
+          ${toast.type === "error" ? "bg-red-500" : "bg-green-500"}`}>
+          {toast.text}
+        </div>
+      )}
+
+      <div className="max-w-4xl mx-auto px-4 py-10">
+
+        {/* Header - Dynamic based on mode */}
+        <div className="mb-8">
+          <h1 className="text-xl md:text-2xl font-bold text-[#141c28de]">
+            {isEditMode ? "Edit Job Listing" : "Post a New Job"}
+          </h1>
+          <p className="text-sm text-gray-400 mt-1">
+            {isEditMode 
+              ? "Update the job details and save your changes" 
+              : "Fill in the details to post a job listing"}
+          </p>
+        </div>
+
+        {/* No companies warning */}
+        {companies.length === 0 && (
+          <div className="mb-6 px-4 py-3 bg-red-50 border border-red-100 rounded-xl text-red-500 text-sm font-medium text-center">
+            ⚠️ Please register a company before posting a job.
+          </div>
+        )}
+
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <form onSubmit={submitHandler} className="flex flex-col gap-5">
+
+            {/* Responsive grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+              <div>
+                <label className={labelClass}>Job Title <span className="text-red-400">*</span></label>
+                <input
+                  value={input.title}
+                  onChange={changeEventHandler}
+                  type="text"
+                  placeholder="e.g. Frontend Developer"
+                  name="title"
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>Location <span className="text-red-400">*</span></label>
+                <input
+                  value={input.location}
+                  onChange={changeEventHandler}
+                  type="text"
+                  placeholder="e.g. Mumbai, India"
+                  name="location"
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>Salary <span className="text-gray-400 font-normal">(LPA)</span></label>
+                <input
+                  value={input.salary}
+                  onChange={changeEventHandler}
+                  type="number"
+                  placeholder="e.g. 8"
+                  name="salary"
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>Positions</label>
+                <input
+                  value={input.position}
+                  onChange={changeEventHandler}
+                  type="number"
+                  placeholder="Number of openings"
+                  name="position"
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>Experience <span className="text-gray-400 font-normal">(years)</span></label>
+                <input
+                  value={input.experience}
+                  onChange={changeEventHandler}
+                  type="number" 
+                  placeholder="e.g. 2"
+                  name="experience"
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>Job Type</label>
+                <input
+                  value={input.jobType}
+                  onChange={changeEventHandler}
+                  type="text"
+                  placeholder="e.g. Full-time, Part-time"
+                  name="jobType"
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>Requirements</label>
+                <input
+                  value={input.requirements}
+                  onChange={changeEventHandler}
+                  type="text"
+                  placeholder="e.g. React, Node.js"
+                  name="requirements"
+                  className={inputClass}
+                />
+              </div>
+
+            </div>
+
+            {/* Description - full width */}
+            <div>
+              <label className={labelClass}>Description</label>
+              <textarea
                 value={input.description}
                 onChange={changeEventHandler}
-                type="text"
-                placeholder="Enter job description"
                 name="description"
-                className="focus-visible:ring-offset-0 shadow focus-visible:ring-0 my-1 border border-gray-400 rounded hover:shadow-blue-500  pl-1"
+                placeholder="Describe the job role and responsibilities..."
+                rows={3}
+                className={inputClass + " resize-none"}
               />
             </div>
-            <div className="grid">
-              <label htmlFor="" className="text-gray-900 font-medium text-sm/6">
-                Location
-              </label>
-              <input
-                value={input.location}
-                onChange={changeEventHandler}
-                type="text"
-                placeholder="Enter job location"
-                name="location"
-                className="focus-visible:ring-offset-0 shadow focus-visible:ring-0 my-1 border border-gray-400 rounded hover:shadow-blue-500  pl-1"
-              />
-            </div>
-            <div className="grid">
-              <label htmlFor="" className="text-gray-900 font-medium text-sm/6">
-                Salary
-              </label>
-              <input
-                value={input.salary}
-                onChange={changeEventHandler}
-                type="number"
-                placeholder="Enter salary"
-                name="salary"
-                className="focus-visible:ring-offset-0 shadow focus-visible:ring-0 my-1 border border-gray-400 rounded hover:shadow-blue-500  pl-1"
-              />
-            </div>
-            <div className="grid">
-              <label htmlFor="" className="text-gray-900 font-medium text-sm/6">
-                Position
-              </label>
-              <input
-                value={input.position}
-                onChange={changeEventHandler}
-                type="number"
-                placeholder="Enter job position"
-                name="position"
-                className="focus-visible:ring-offset-0 shadow focus-visible:ring-0 my-1 border border-gray-400 rounded hover:shadow-blue-500  pl-1"
-              />
-            </div>
-            <div className="grid">
-              <label htmlFor="" className="text-gray-900 font-medium text-sm/6">
-                Requirements
-              </label>
-              <input
-                value={input.requirements}
-                onChange={changeEventHandler}
-                type="text"
-                placeholder="Enter job requirements"
-                name="requirements"
-                className="focus-visible:ring-offset-0 shadow focus-visible:ring-0 my-1 border border-gray-400 rounded hover:shadow-blue-500  pl-1"
-              />
-            </div>
-            <div className="grid">
-              <label htmlFor="" className="text-gray-900 font-medium text-sm/6">
-                Experience
-              </label>
-              <input
-                value={input.experience}
-                onChange={changeEventHandler}
-                type="numer"
-                placeholder="Enter job experience"
-                name="experience"
-                className="focus-visible:ring-offset-0 shadow focus-visible:ring-0 my-1 border border-gray-400 rounded hover:shadow-blue-500  pl-1"
-              />
-            </div>
-            <div className="grid">
-              <label htmlFor="" className="text-gray-900 font-medium text-sm/6">
-                Job Type
-              </label>
-              <input
-                value={input.jobType}
-                onChange={changeEventHandler}
-                type="text"
-                placeholder="Enter job Job Type"
-                name="jobType"
-                className="focus-visible:ring-offset-0 shadow focus-visible:ring-0 my-1 border border-gray-400 rounded hover:shadow-blue-500  pl-1"
-              />
-            </div>
-          </div>
 
-          <div>
-            <Listbox
-              value={selected}
-              onChange={(e) => {
-                (companyHandleChange(e), selectChangeHandler(e));
-              }}
-            >
-              <Label className="block text-sm/6 mt-2 font-medium text-gray-900">
-                Choose Company
-              </Label>
-              <div className="relative mt-2">
-                <ListboxButton className="grid cursor-default grid-cols-1 rounded-md bg-white py-1.5 pr-2 pl-3 text-left text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-600 sm:text-sm/6">
-                  <span className="col-start-1 row-start-1 flex items-center gap-3 pr-6">
-                    {selected && (
-                      <img
-                        src={selected.logo}
-                        alt=""
-                        className="size-5 rounded-full"
-                      />
-                    )}
-
-                    <span className="block truncate">
-                      {selected ? selected.name : "Select Company"}
-                    </span>
-                  </span>
-                  <ChevronsUpDown
-                    aria-hidden="true"
-                    className="col-start-1 row-start-1 size-5 self-center justify-self-end text-gray-500 sm:size-4"
-                  />
-                </ListboxButton>
-
-                <ListboxOptions
-                  transition
-                  className="absolute z-10 mt-0.5 max-h-25 overflow-auto rounded-md bg-white py-1 text-base shadow-lg outline-1 outline-black/5 data-leave:transition data-leave:duration-100 data-leave:ease-in data-closed:data-leave:opacity-0 sm:text-sm"
-                >
-                  {companies.map((company) => (
-                    <ListboxOption
-                      key={company._id}
-                      value={company}
-                      className="group relative cursor-default py-2 pr-9 pl-3 text-gray-900 select-none data-focus:bg-indigo-600 data-focus:text-white data-focus:outline-hidden"
-                    >
-                      <div className="flex items-center">
-                        <img
-                          alt=""
-                          src={company.logo}
-                          className="size-5 shrink-0 rounded-full"
-                        />
-                        <span className="ml-3 block truncate font-normal group-data-selected:font-semibold">
-                          {company.name}
-                        </span>
-                      </div>
-
-                      <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-indigo-600 group-not-data-selected:hidden group-data-focus:text-white">
-                        <CheckIcon aria-hidden="true" className="size-5" />
+            {/* Company Selector */}
+            <div>
+              <label className={labelClass}>Select Company <span className="text-red-400">*</span></label>
+              <Listbox value={selected} onChange={companyHandleChange}>
+                <div className="relative">
+                  <ListboxButton className="w-full flex items-center justify-between border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      {selected?.logo && (
+                        <img src={selected.logo} alt="" className="w-5 h-5 rounded-full object-cover" />
+                      )}
+                      <span className={selected ? "text-gray-800" : "text-gray-400"}>
+                        {selected ? selected.name : "Select a company"}
                       </span>
-                    </ListboxOption>
-                  ))}
-                </ListboxOptions>
-              </div>
-            </Listbox>
-          </div>
+                    </div>
+                    <ChevronsUpDown size={16} className="text-gray-400" />
+                  </ListboxButton>
 
-          <div className="flex items-center justify-center my-3">
-            <button
-              type="submit"
-              className="w-full bg-transparent hover:bg-blue-500 text-blue-700 font-semibold hover:text-white py-1 border border-blue-500 hover:border-transparent rounded"
-            >
-              {loading ? "loading" : "Post Job"}
-            </button>
-          </div>
-          <div>
-            {companies.length === 0 && (
-              <p className="text-center my-1 text-red-400 font-semibold">
-                *Please register company before posting job.*
-              </p>
-            )}
-          </div>
-        </form>
+                  <ListboxOptions className="absolute z-20 w-full mt-1 max-h-48 overflow-auto rounded-xl bg-white shadow-lg border border-gray-100 py-1">
+                    {companies.map((company) => (
+                      <ListboxOption
+                        key={company._id}
+                        value={company}
+                        className="flex items-center justify-between px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 hover:text-blue-700 transition"
+                      >
+                        <div className="flex items-center gap-2">
+                          {company.logo && (
+                            <img src={company.logo} alt="" className="w-5 h-5 rounded-full object-cover" />
+                          )}
+                          <span>{company.name}</span>
+                        </div>
+                        {selected?._id === company._id && (
+                          <Check size={14} className="text-blue-600" />
+                        )}
+                      </ListboxOption>
+                    ))}
+                  </ListboxOptions>
+                </div>
+              </Listbox>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                disabled={loading || companies.length === 0}
+                className={`flex-1 py-2.5 rounded-xl text-white font-semibold text-sm transition
+                  ${loading || companies.length === 0
+                    ? "bg-gray-300 cursor-not-allowed"
+                    : "bg-[#2777e7de] hover:bg-blue-700 cursor-pointer"
+                  }`}
+              >
+                {loading ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    {isEditMode ? "Updating..." : "Posting..."}
+                  </div>
+                ) : (
+                  isEditMode ? "Update Job" : "Post Job"
+                )}
+              </button>
+
+              {isEditMode && (
+                <button
+                  type="button"
+                  onClick={() => navigate("/admin/jobs")}
+                  className="flex-1 py-2.5 rounded-xl text-gray-700 font-semibold text-sm transition bg-gray-100 hover:bg-gray-200 cursor-pointer"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+
+          </form>
+        </div>
       </div>
     </div>
   );

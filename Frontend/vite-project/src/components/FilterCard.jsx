@@ -59,13 +59,13 @@ const filterData = [
   {
     filterType: "Salary",
     array: [
-      "0 - 3 LPA",
-      "3 - 6 LPA",
-      "6 - 10 LPA",
-      "10 - 15 LPA",
-      "15 - 20 LPA",
-      "20 - 30 LPA",
-      "30+ LPA",
+      "3",
+      "6",
+      "10",
+      "15",
+      "20",
+      "30",
+      "30+",
     ],
   },
 ];
@@ -94,14 +94,14 @@ const FilterCard = () => {
 
   useEffect(() => {
     dispatch(setSearchedQuery(selectedValue));
-  }, [selectedValue, dispatch]); // ✅ added dispatch to deps
+  }, [selectedValue, dispatch]); // added dispatch to deps
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 w-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <h1 className="font-bold text-base text-[#141c28de]">Filter Jobs</h1>
-        {selectedValue && ( // ✅ only show reset when something is selected
+        {selectedValue && ( // only show reset when something is selected
           <button
             onClick={handleReset}
             className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600 font-medium transition"
@@ -141,7 +141,12 @@ const FilterCard = () => {
               className="flex items-center justify-between w-full py-2 text-left"
             >
               <h2 className="font-semibold text-sm text-[#141c28de]">
-                {data.filterType}
+                
+                {data.filterType === "Salary" ? (
+                  <p>Salary <span className="text-xs text-[#929394de]">(in LPA)</span></p>
+                ) : (
+                  <p>{data.filterType}</p>
+                )}
               </h2>
               {openSections[index] ? (
                 <ChevronUp size={14} className="text-gray-400" />
@@ -154,7 +159,7 @@ const FilterCard = () => {
             {openSections[index] && (
               <div className="max-h-40 overflow-y-auto flex flex-col gap-1 pr-1">
                 {" "}
-                {/* ✅ scrollable */}
+                {/* scrollable */}
                 {data.array.map((item, idx) => (
                   <label
                     key={idx}
@@ -162,7 +167,7 @@ const FilterCard = () => {
                     className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer text-sm transition
                       ${
                         selectedValue === item
-                          ? "bg-blue-50 text-blue-700 font-medium" // ✅ highlight selected
+                          ? "bg-blue-50 text-blue-700 font-medium" // highlight selected
                           : "hover:bg-gray-50 text-gray-600"
                       }`}
                   >

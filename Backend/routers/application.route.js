@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.route("/apply/:id").post(authenticatedToken, applyJob);
 router.route("/get").get(authenticatedToken, getAppliedJobs);
-router.route("status/:id/applicants").get(authenticatedToken, getApplicants);
+router.route("/:id/applicants").get(authenticatedToken, getApplicants);
 router.route("/status/:id/update").post(authenticatedToken, updateStatus);
 
 export default router;
