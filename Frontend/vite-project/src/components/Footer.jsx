@@ -56,7 +56,7 @@ const Footer = () => {
 
         {/* Left - Branding */}
         <div className="flex items-center gap-3">
-          <span className="text-3xl font-bold text-[#2777e7de]">JP</span>
+          <span className="text-3xl font-bold text-[#2777e7de]">mN</span>
           <div>
             <h3 className="font-semibold text-sm">Mohit Negi Creation</h3>
             <p className="text-xs text-gray-500">
